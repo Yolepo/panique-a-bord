@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>L'Orchestre d'Agents — Présentation</title>
+<style>
+  :root {
+    --bg: #F5F5F7;
+    --surface: #FFFFFF;
+    --border: #D2D2D7;
+    --border-soft: #E5E5EA;
+    --line: #86868B;
+    --text: #1D1D1F;
+    --muted: #6E6E73;
+
+    --blue: #0066CC;
+    --blue-bg: #EBF4FF;
+    --blue-border: #99CAFF;
+
+    --green: #157347;
+    --green-bg: #EAF8F0;
+    --green-border: #9CE0B8;
+
+    --indigo: #4B48D6;
+    --indigo-bg: #F0EFFF;
+    --indigo-border: #C4C2FF;
+
+    --amber: #B25000;
+    --amber-bg: #FFF5E6;
+    --amber-border: #FFCC80;
+
+    --red: #C9192B;
+    --red-bg: #FFF0F0;
+    --red-border: #FFB3B8;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Window / Slide Header */
+  header {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border-soft);
+    padding: 18px 56px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .mac-dots {
+    display: flex;
+    gap: 7px;
+    margin-right: 8px;
+  }
+  .mac-dots span {
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+  }
+  .mac-dots span:nth-child(1) { background: #FF5F56; }
+  .mac-dots span:nth-child(2) { background: #FFBD2E; }
+  .mac-dots span:nth-child(3) { background: #27C93F; }
+
+  h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+  .slide-tag {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    padding: 6px 14px;
+    border-radius: 99px;
+  }
+
+  /* Slide Container */
+  .slide {
+    display: none;
+    flex: 1;
+    padding: 36px 56px;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 28px;
+    overflow-y: auto;
+  }
+  .slide.active { display: flex; }
+
+  /* White Canvas Card */
+  .canvas-card {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 20px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.04);
+    padding: 32px 36px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  /* Badges */
+  .pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 99px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .pill-pro { background: var(--blue-bg); color: var(--blue); border: 1px solid var(--blue-border); }
+  .pill-flash { background: var(--green-bg); color: var(--green); border: 1px solid var(--green-border); }
+  .pill-gh { background: var(--indigo-bg); color: var(--indigo); border: 1px solid var(--indigo-border); }
+  .pill-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber-border); }
+  .pill-red { background: var(--red-bg); color: var(--red); border: 1px solid var(--red-border); }
+
+  /* Diagram Boxes */
+  .box {
+    background: var(--surface);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 14px 18px;
+    text-align: center;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+    position: relative;
+  }
+  .box.pro { border-color: var(--blue-border); background: linear-gradient(180deg, #FFFFFF 0%, #F7FBFF 100%); }
+  .box.flash { border-color: var(--green-border); background: linear-gradient(180deg, #FFFFFF 0%, #F6FCF8 100%); }
+  .box.gh { border-color: var(--indigo-border); background: linear-gradient(180deg, #FFFFFF 0%, #F8F7FF 100%); }
+  .box.amber { border-color: var(--amber-border); background: var(--amber-bg); }
+  .box.red { border-color: var(--red-border); background: var(--red-bg); }
+
+  .box-title {
+    font-size: 1.02rem;
+    font-weight: 600;
+    color: var(--text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-bottom: 4px;
+  }
+  .box-sub {
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.35;
+  }
+
+  /* Tree & Line Connectors */
+  .v-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
+    padding: 6px 0;
+  }
+  .v-line {
+    width: 2px;
+    height: 26px;
+    background: var(--line);
+    position: relative;
+  }
+  .v-line.arrow-end::after {
+    content: "";
+    position: absolute;
+    bottom: -5px;
+    left: -4px;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-top: 6px solid var(--line);
+  }
+  .line-label {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    padding: 2px 10px;
+    border-radius: 99px;
+    margin: 2px 0;
+  }
+
+  /* Horizontal Bus Bar for 4 branches */
+  .bus-4 {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    position: relative;
+    padding-top: 22px;
+    padding-bottom: 22px;
+  }
+  /* Top horizontal bar spanning from center of col 1 to center of col 4 */
+  .bus-4::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 12.5%;
+    right: 12.5%;
+    height: 2px;
+    background: var(--line);
+  }
+  /* Bottom horizontal collector bar */
+  .bus-4::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 12.5%;
+    right: 12.5%;
+    height: 2px;
+    background: var(--line);
+  }
+  .bus-col {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+  }
+  .bus-col::before {
+    content: "";
+    position: absolute;
+    top: -22px;
+    left: 50%;
+    width: 2px;
+    height: 22px;
+    background: var(--line);
+    transform: translateX(-50%);
+  }
+  .bus-col::after {
+    content: "";
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    width: 2px;
+    height: 22px;
+    background: var(--line);
+    transform: translateX(-50%);
+  }
+  .bus-col .box { flex: 1; }
+
+  /* Horizontal Flow Pipeline (Connected with solid lines & arrows) */
+  .h-flow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0;
+    width: 100%;
+  }
+  .h-flow .box {
+    flex: 1;
+    min-width: 155px;
+  }
+  .h-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 72px;
+    position: relative;
+  }
+  .h-link-caption {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: 6px;
+    white-space: nowrap;
+  }
+  .h-line {
+    width: 100%;
+    height: 2px;
+    background: var(--line);
+    position: relative;
+  }
+  .h-line::after {
+    content: "";
+    position: absolute;
+    right: -1px;
+    top: -4px;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 7px solid var(--line);
+  }
+
+  /* Summary Cards at bottom of interaction slides */
+  .takeaways {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+  .takeaway-card {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 18px 22px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.02);
+  }
+  .takeaway-num {
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--blue);
+    margin-bottom: 6px;
+  }
+  .takeaway-title {
+    font-size: 0.98rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+  .takeaway-desc {
+    font-size: 0.88rem;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+
+  /* Slide 1 Split */
+  .slide1-grid {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr;
+    gap: 28px;
+    flex: 1;
+    align-items: stretch;
+  }
+  .roster-list {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .roster-item {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 14px;
+    padding: 11px 14px;
+    border-radius: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+  }
+  .roster-item b { font-size: 0.95rem; color: var(--text); }
+  .roster-role { font-size: 0.84rem; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+
+  /* Parallel Fork Container (Slides 3 & 5) */
+  .fork-layout {
+    display: grid;
+    grid-template-columns: 190px 44px 1fr;
+    align-items: center;
+  }
+  .fork-bracket {
+    height: 62%;
+    border-top: 2px solid var(--line);
+    border-bottom: 2px solid var(--line);
+    border-left: 2px solid var(--line);
+    border-radius: 10px 0 0 10px;
+    position: relative;
+  }
+  .fork-bracket::before {
+    content: "";
+    position: absolute;
+    left: -22px;
+    top: 50%;
+    width: 22px;
+    height: 2px;
+    background: var(--line);
+  }
+  .fork-tracks {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+  .track-row {
+    display: flex;
+    align-items: center;
+    background: var(--bg);
+    border: 1px solid var(--border-soft);
+    border-radius: 16px;
+    padding: 16px 20px;
+  }
+  .track-label {
+    width: 110px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+    padding-right: 12px;
+  }
+
+  /* Footer */
+  footer {
+    background: var(--surface);
+    border-top: 1px solid var(--border-soft);
+    padding: 12px 56px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .dots { display: flex; gap: 10px; }
+  .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--border); cursor: pointer;
+    transition: all 0.2s ease;
+  }
+  .dot.active { background: var(--blue); width: 24px; border-radius: 99px; }
+  .nav-btns button {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 7px 18px;
+    border-radius: 99px;
+    font-size: 0.88rem;
+    font-weight: 500;
+    cursor: pointer;
+    margin-left: 8px;
+    transition: all 0.15s ease;
+  }
+  .nav-btns button:hover {
+    border-color: var(--blue);
+    color: var(--blue);
+    background: var(--blue-bg);
+  }
+</style>
+</head>
+<body>
+
+  <header>
+    <div class="header-left">
+      <div class="mac-dots"><span></span><span></span><span></span></div>
+      <h1 id="slide-title">1. Le Comité des 6 Agents & L'Architecture Globale</h1>
+    </div>
+    <span class="slide-tag" id="slide-counter">Slide 1 sur 6</span>
+  </header>
+
+  <!-- ==================== SLIDE 1 : ARCHITECTURE GLOBALE ==================== -->
+  <div class="slide active" data-title="1. Le Comité des 6 Agents & L'Architecture Globale">
+    <div class="slide1-grid">
+      <!-- Schéma relié par des traits -->
+      <div class="canvas-card">
+        <div style="max-width: 520px; margin: 0 auto; width: 100%;">
+          <div class="box gh">
+            <div class="box-title">GitHub Issues API <span class="pill pill-gh">Seule Source de Vérité</span></div>
+            <div class="box-sub">Backlog Tickets #1 à #5 • <code>get-issue</code> • <code>comment-issue</code> • <code>close-issue</code></div>
+          </div>
+        </div>
+
+        <div class="v-connector">
+          <div class="v-line"></div>
+          <div class="line-label">Lecture du cahier des charges & Suivi</div>
+          <div class="v-line arrow-end"></div>
+        </div>
+
+        <div style="max-width: 460px; margin: 0 auto; width: 100%;">
+          <div class="box pro">
+            <div class="box-title">Patron <span class="pill pill-pro">Modèle Pro</span></div>
+            <div class="box-sub">Tech Lead & Coordinateur — Ne code jamais seul, délègue en parallèle</div>
+          </div>
+        </div>
+
+        <div class="v-connector" style="padding-bottom: 0;">
+          <div class="v-line" style="height: 18px;"></div>
+        </div>
+
+        <!-- Bus horizontal reliant Patron aux 4 agents d'exécution -->
+        <div class="bus-4">
+          <div class="bus-col">
+            <div class="box pro">
+              <div class="box-title">Cambouis</div>
+              <div style="margin-bottom: 6px;"><span class="pill pill-pro">Pro</span></div>
+              <div class="box-sub">Back-end Python & Moteur<br><b>Tickets #1, #3, #5</b></div>
+            </div>
+          </div>
+          <div class="bus-col">
+            <div class="box pro">
+              <div class="box-title">Gouache</div>
+              <div style="margin-bottom: 6px;"><span class="pill pill-pro">Pro</span></div>
+              <div class="box-sub">Front-end & Carte Radar<br><b>Ticket #2</b></div>
+            </div>
+          </div>
+          <div class="bus-col">
+            <div class="box flash">
+              <div class="box-title">Videur</div>
+              <div style="margin-bottom: 6px;"><span class="pill pill-flash">Flash</span></div>
+              <div class="box-sub">QA, Sécurité & Chaos<br><b>Tickets #4 & #5</b></div>
+            </div>
+          </div>
+          <div class="bus-col">
+            <div class="box flash">
+              <div class="box-title">Greffier</div>
+              <div style="margin-bottom: 6px;"><span class="pill pill-flash">Flash</span></div>
+              <div class="box-sub">Documentation 360°<br><b>Ticket #4</b></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="v-connector" style="padding-top: 0;">
+          <div class="v-line" style="height: 14px;"></div>
+          <div class="line-label">Chaque commit Git passe en Peer Review obligatoire</div>
+          <div class="v-line arrow-end" style="height: 16px;"></div>
+        </div>
+
+        <div style="max-width: 520px; margin: 0 auto; width: 100%;">
+          <div class="box flash">
+            <div class="box-title">Pinailleur <span class="pill pill-flash">Modèle Flash</span></div>
+            <div class="box-sub">Relecteur de Code (<code>git show HEAD</code>) — Demande des retouches (#3) et clôture les tickets sur GitHub</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Liste épurée des 6 agents -->
+      <div class="canvas-card">
+        <h2 style="font-size: 1.1rem; font-weight: 600; margin-bottom: 14px; color: var(--text);">Rôle de chaque Agent (<code>.agents/personas/</code>)</h2>
+        <div class="roster-list">
+          <div class="roster-item">
+            <div>
+              <b>Patron</b>
+              <div class="roster-role">Tech Lead : lit les tickets sur GitHub, répartit le travail en parallèle et impose la relecture des commits.</div>
+            </div>
+            <span class="pill pill-pro">Pro</span>
+          </div>
+          <div class="roster-item">
+            <div>
+              <b>Cambouis</b>
+              <div class="roster-role">Développeur Back-end Python : serveur temps réel, moteur de simulation, algorithme de dispatch et tests unitaires.</div>
+            </div>
+            <span class="pill pill-pro">Pro</span>
+          </div>
+          <div class="roster-item">
+            <div>
+              <b>Gouache</b>
+              <div class="roster-role">Développeur Front-end : transforme l'interface basique en Cockpit <i>Cyber-Crisis</i> avec carte radar HTML/CSS.</div>
+            </div>
+            <span class="pill pill-pro">Pro</span>
+          </div>
+          <div class="roster-item">
+            <div>
+              <b>Pinailleur</b>
+              <div class="roster-role">Relecteur de Code : inspecte chaque commit avant fermeture de ticket et exige une retouche sur le Ticket #3.</div>
+            </div>
+            <span class="pill pill-flash">Flash</span>
+          </div>
+          <div class="roster-item">
+            <div>
+              <b>Videur</b>
+              <div class="roster-role">Ingénieur QA & Sécurité : attaque le serveur avec <code>chaos_probe.py</code>, ouvre lui-même le bug #5 et valide le correctif.</div>
+            </div>
+            <span class="pill pill-flash">Flash</span>
+          </div>
+          <div class="roster-item">
+            <div>
+              <b>Greffier</b>
+              <div class="roster-role">Rédacteur Technique : génère les manuels Utilisateur, Fonctionnel et Technique à partir du code livré.</div>
+            </div>
+            <span class="pill pill-flash">Flash</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 2 : INTERACTION 1 (TICKET #1) ==================== -->
+  <div class="slide" data-title="2. Interaction 1 — Lecture du Ticket #1, Prototype & 1re Peer Review">
+    <div class="canvas-card">
+      <div class="h-flow">
+        <div class="box gh">
+          <div class="box-title">GitHub Issue #1</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-gh">get-issue #1</span></div>
+          <div class="box-sub">Cahier des charges du socle serveur & IHM initiale</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">1. Lit le ticket</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box pro">
+          <div class="box-title">Patron</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-pro">Pro</span></div>
+          <div class="box-sub">Coordonne et délègue sans coder lui-même</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">2. Délègue #1</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box pro">
+          <div class="box-title">Cambouis</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-pro">Pro</span></div>
+          <div class="box-sub">Code <code>server.py</code> + <code>index.html</code> sobre & <b>git commit</b></div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">3. Commit livré</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box flash">
+          <div class="box-title">Pinailleur</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-flash">Flash</span></div>
+          <div class="box-sub">Inspecte <code>git show HEAD</code> et approuve</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">4. close-issue</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box gh">
+          <div class="box-title">Issue #1 Fermée</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-flash">Closed</span></div>
+          <div class="box-sub">Serveur actif sur <code>127.0.0.1:8080</code></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways">
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 01</div>
+        <div class="takeaway-title">Zéro spécification dans le prompt</div>
+        <div class="takeaway-desc">On demande simplement à <b>Patron</b> de traiter l'Issue #1 : il interroge l'API GitHub pour lire lui-même le cahier des charges.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 02</div>
+        <div class="takeaway-title">Interface sobre volontaire (Avant / Après)</div>
+        <div class="takeaway-desc">Sans le skill design, <b>Cambouis</b> produit un tableau HTML gris minimaliste pour préparer le contraste visuel du Ticket #2.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 03</div>
+        <div class="takeaway-title">Séparation Développeur / Relecteur</div>
+        <div class="takeaway-desc"><b>Cambouis</b> commite et commente l'Issue #1 sans la fermer. C'est <b>Pinailleur</b> qui vérifie le commit et clôture le ticket.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 3 : INTERACTION 2 (TICKETS #2 & #3) ==================== -->
+  <div class="slide" data-title="3. Interaction 2 — Exécution Parallèle & Retour de Peer Review (#2 & #3)">
+    <div class="canvas-card">
+      <div class="fork-layout">
+        <div class="box pro">
+          <div class="box-title">Patron</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-pro">Pro</span></div>
+          <div class="box-sub">Lit les Issues #2 et #3 et lance les 2 agents <b>en parallèle</b></div>
+        </div>
+
+        <div class="fork-bracket"></div>
+
+        <div class="fork-tracks">
+          <!-- Branche Ticket #2 -->
+          <div class="track-row">
+            <div class="track-label">Ticket #2<br>Front-end</div>
+            <div class="h-flow">
+              <div class="box pro">
+                <div class="box-title">Gouache <span class="pill pill-pro">Pro</span></div>
+                <div class="box-sub">Skill <code>mission-control-design</code><br>Cockpit & Carte Radar HTML/CSS</div>
+              </div>
+              <div class="h-link">
+                <span class="h-link-caption">1er Commit</span>
+                <div class="h-line"></div>
+              </div>
+              <div class="box flash">
+                <div class="box-title">Pinailleur <span class="pill pill-flash">Flash</span></div>
+                <div class="box-sub">Relecture <code>git show HEAD</code><br>Approuvé du 1er coup</div>
+              </div>
+              <div class="h-link">
+                <span class="h-link-caption">close-issue</span>
+                <div class="h-line"></div>
+              </div>
+              <div class="box gh">
+                <div class="box-title">Issue #2 Fermée</div>
+                <div class="box-sub">Validée en 1 passage</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Branche Ticket #3 -->
+          <div class="track-row">
+            <div class="track-label">Ticket #3<br>Moteur</div>
+            <div class="h-flow">
+              <div class="box pro">
+                <div class="box-title">Cambouis <span class="pill pill-pro">Pro</span></div>
+                <div class="box-sub">Livre <code>core/engine.py</code><br>+ tests unitaires</div>
+              </div>
+              <div class="h-link">
+                <span class="h-link-caption">1er Commit</span>
+                <div class="h-line"></div>
+              </div>
+              <div class="box amber">
+                <div class="box-title">Pinailleur <span class="pill pill-amber">Refus 1er passage</span></div>
+                <div class="box-sub">Ne ferme pas #3 : exige typage Python + docstring <code>RG-02</code></div>
+              </div>
+              <div class="h-link">
+                <span class="h-link-caption">2e Commit corrigé</span>
+                <div class="h-line"></div>
+              </div>
+              <div class="box flash">
+                <div class="box-title">Pinailleur → #3 Fermée</div>
+                <div class="box-sub">2e commit approuvé & clos</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways">
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 01</div>
+        <div class="takeaway-title">Parallélisme Front / Back</div>
+        <div class="takeaway-desc"><b>Gouache</b> transforme l'interface en Cockpit <i>Cyber-Crisis</i> pendant que <b>Cambouis</b> code l'algorithme de dispatch euclidien.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 02</div>
+        <div class="takeaway-title">Refus de Peer Review en direct (Ticket #3)</div>
+        <div class="takeaway-desc">Lors de son 1er passage sur l'Issue #3, <b>Pinailleur</b> refuse de clore le ticket et demande en commentaire le typage Python et la docstring <code>RG-02</code>.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 03</div>
+        <div class="takeaway-title">Correction et validation au 2e passage</div>
+        <div class="takeaway-desc"><b>Patron</b> renvoie automatiquement <b>Cambouis</b> pousser un 2e commit de retouche, que <b>Pinailleur</b> valide avant de fermer l'Issue #3.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 4 : INTERACTION 3 (TICKET #5) ==================== -->
+  <div class="slide" data-title="4. Interaction 3 — Attaque Sécurité, Auto-Bug & Auto-Guérison (Ticket #5)">
+    <div class="canvas-card">
+      <div class="h-flow">
+        <div class="box red">
+          <div class="box-title">1. Videur</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-red">Attaque Chaos</span></div>
+          <div class="box-sub">Lance <code>chaos_probe.py</code> : détecte XSS & coordonnées hors-radar</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">create-issue</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box red">
+          <div class="box-title">2. Issue #5 [BUG]</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-gh">Ouverte par Videur</span></div>
+          <div class="box-sub">Ticket de bug créé automatiquement sur GitHub</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">Délégation</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box pro">
+          <div class="box-title">3. Cambouis</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-pro">Pro</span></div>
+          <div class="box-sub">Patch <code>html.escape</code> + bornes <code>0..100</code> + tests unitaires</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">Commit patch</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box flash">
+          <div class="box-title">4. Pinailleur</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-flash">Flash</span></div>
+          <div class="box-sub">Relit et valide le commit de sécurité</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">Contre-audit</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box flash">
+          <div class="box-title">5. Videur → #5 Clos</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-flash">100% Vert</span></div>
+          <div class="box-sub">Relance <code>chaos_probe.py</code> et ferme le bug #5</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways">
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 01</div>
+        <div class="takeaway-title">Ouverture autonome d'un bug sur GitHub</div>
+        <div class="takeaway-desc">Ce n'est pas l'humain qui signale l'anomalie : <b>Videur</b> attaque le serveur local et ouvre de lui-même l'Issue #5 avec les preuves techniques.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 02</div>
+        <div class="takeaway-title">Double validation (Code Review + Contre-attaque)</div>
+        <div class="takeaway-desc">Le correctif de <b>Cambouis</b> est d'abord relu par <b>Pinailleur</b> sur Git, puis ré-éprouvé en conditions réelles par la sonde de <b>Videur</b>.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 03</div>
+        <div class="takeaway-title">Traçabilité complète sur le ticket</div>
+        <div class="takeaway-desc">L'Issue #5 garde toute l'histoire : rapport d'attaque initial, hash du commit de correction, Peer Review et rapport de contre-audit.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 5 : INTERACTION 4 (TICKET #4) ==================== -->
+  <div class="slide" data-title="5. Interaction 4 — Release QA & Documentation 360° en Parallèle (Ticket #4)">
+    <div class="canvas-card">
+      <div class="fork-layout">
+        <div class="box pro">
+          <div class="box-title">Patron</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-pro">Pro</span></div>
+          <div class="box-sub">Lit l'Issue #4 <code>[RELEASE]</code> et lance 2 agents Flash en parallèle</div>
+        </div>
+
+        <div class="fork-bracket"></div>
+
+        <div class="fork-tracks">
+          <!-- Voie QA -->
+          <div class="track-row">
+            <div class="track-label">Voie 1<br>Homologation</div>
+            <div class="h-flow">
+              <div class="box flash">
+                <div class="box-title">Videur <span class="pill pill-flash">Flash</span></div>
+                <div class="box-sub">Skill <code>chaos-and-test-runner</code><br>Synthèse des tests & sondes</div>
+              </div>
+              <div class="h-link">
+                <span class="h-link-caption">Génère</span>
+                <div class="h-line"></div>
+              </div>
+              <div class="box">
+                <div class="box-title">docs/RAPPORT_DE_TESTS.md</div>
+                <div class="box-sub">Matrice Tickets #1 à #5, sortie <code>unittest</code> & comparatif Avant/Après Chaos</div>
+              </div>
+              <div class="h-link">
+                <span class="h-link-caption">Commit</span>
+                <div class="h-line"></div>
+              </div>
+              <div class="box flash">
+                <div class="box-title">Pinailleur <span class="pill pill-flash">Flash</span></div>
+                <div class="box-sub">Valide le commit & ferme l'Issue #4</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Voie Doc -->
+          <div class="track-row">
+            <div class="track-label">Voie 2<br>Documentation</div>
+            <div class="h-flow">
+              <div class="box flash">
+                <div class="box-title">Greffier <span class="pill pill-flash">Flash</span></div>
+                <div class="box-sub">Skill <code>living-docs-360</code><br>Analyse le code réel livré</div>
+              </div>
+              <div class="h-link">
+                <span class="h-link-caption">Génère</span>
+                <div class="h-line"></div>
+              </div>
+              <div class="box">
+                <div class="box-title">3 Manuels dans docs/</div>
+                <div class="box-sub"><code>MANUEL_UTILISATEUR.md</code> • <code>DOC_FONCTIONNELLE.md</code> • <code>DOC_TECHNIQUE.md</code></div>
+              </div>
+              <div class="h-link">
+                <span class="h-link-caption">Commit</span>
+                <div class="h-line"></div>
+              </div>
+              <div class="box gh">
+                <div class="box-title">5 / 5 Issues Fermées</div>
+                <div class="box-sub">Docs consultables dans l'onglet 2 du Cockpit</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways">
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 01</div>
+        <div class="takeaway-title">Vitesse du modèle Flash</div>
+        <div class="takeaway-desc">Les 4 livrables documentaires sont générés en quelques secondes en parallèle sans mobiliser un modèle lourd.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 02</div>
+        <div class="takeaway-title">Documentation fidèle au code réel</div>
+        <div class="takeaway-desc"><b>Greffier</b> inspecte <code>server.py</code>, <code>core/engine.py</code> et les tickets GitHub fermés pour documenter l'application telle qu'elle a été codée.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Point clé 03</div>
+        <div class="takeaway-title">Consultation directe dans l'application</div>
+        <div class="takeaway-desc">Un clic sur l'onglet <i>Centre Documentaire & QA</i> du Cockpit affiche en direct les 4 documents générés.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SLIDE 6 : POUR ALLER PLUS LOIN ==================== -->
+  <div class="slide" data-title="6. Pour aller plus loin — Du POC au Workflow d'Équipe Industrialisé">
+    <div class="canvas-card" style="flex: 0 0 auto; padding: 24px 32px;">
+      <div class="h-flow">
+        <div class="box gh">
+          <div class="box-title">1. Webhook GitHub / GitLab</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-gh">Zéro Prompt</span></div>
+          <div class="box-sub">Un label <code>ready</code> sur un ticket déclenche <b>Patron</b> automatiquement</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">Branche isolée</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box pro">
+          <div class="box-title">2. Git Worktrees & PR</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-pro">workspace: share</span></div>
+          <div class="box-sub">Chaque agent code sur sa branche et ouvre une vraie <b>Pull Request</b></div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">Review + CI</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box flash">
+          <div class="box-title">3. Pinailleur + Sonar / CI</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-flash">Qualité</span></div>
+          <div class="box-sub">Commentaires ligne à ligne sur la PR + validation par un humain avant merge</div>
+        </div>
+
+        <div class="h-link">
+          <span class="h-link-caption">Capitalisation</span>
+          <div class="h-line"></div>
+        </div>
+
+        <div class="box amber">
+          <div class="box-title">4. Auto-Apprentissage</div>
+          <div style="margin-bottom: 6px;"><span class="pill pill-amber">Évolution des Skills</span></div>
+          <div class="box-sub">Chaque bug résolu enrichit les <code>SKILL.md</code> pour ne plus jamais le reproduire</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="takeaways" style="grid-template-columns: repeat(3, 1fr); gap: 16px; flex: 1;">
+      <div class="takeaway-card">
+        <div class="takeaway-num">Piste 01 • Git & Isolation</div>
+        <div class="takeaway-title">Vraies Pull Requests par Agent</div>
+        <div class="takeaway-desc">Utiliser les workspaces partagés (<i>git worktrees</i>) pour que <b>Cambouis</b> et <b>Gouache</b> travaillent sur des branches séparées et ouvrent de vraies PR revues par <b>Pinailleur</b>.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Piste 02 • Automatisation</div>
+        <div class="takeaway-title">Pilotage Événementiel (Webhooks / Cron)</div>
+        <div class="takeaway-desc">Ne même plus taper les prompts dans l'IDE : dès qu'une Issue est créée ou qu'une alerte Sentry remonte en prod, l'équipe d'agents prépare un correctif en tâche de fond.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Piste 03 • Mémoire Collective</div>
+        <div class="takeaway-title">Amélioration Continue des Skills</div>
+        <div class="takeaway-desc">Quand <b>Videur</b> découvre une faille, un agent met à jour automatiquement les règles dans <code>.agents/skills/</code> pour vacciner toute l'équipe sur les prochains développements.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Piste 04 • Gouvernance</div>
+        <div class="takeaway-title">Human-in-the-Loop sur les Décisions Clés</div>
+        <div class="takeaway-desc">Laisser les agents autonomes sur le code, les tests et la doc, mais bloquer le merge final ou les changements d'architecture sur l'approbation d'un Tech Lead humain.</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Piste 05 • Nouveaux Rôles</div>
+        <div class="takeaway-title">Élargir le Comité d'Agents</div>
+        <div class="takeaway-desc">Ajouter un agent <b>FinOps</b> (suivi du coût des tokens <code>pro</code> vs <code>flash</code>), un agent <b>DBA</b> (migrations SQL), ou un agent <b>Accessibilité</b> (audit RGAA / WCAG).</div>
+      </div>
+      <div class="takeaway-card">
+        <div class="takeaway-num">Piste 06 • Écosystème Entreprise</div>
+        <div class="takeaway-title">Connexion MCP aux Outils Internes</div>
+        <div class="takeaway-desc">Brancher le même comité sur <b>Jira</b>, <b>GitLab</b>, <b>SonarQube</b>, <b>Datadog</b> ou <b>Slack</b> via des serveurs MCP pour s'intégrer aux workflows existants de l'entreprise.</div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div style="color: var(--muted); font-size: 0.86rem;">Utilisez les flèches <b>←</b> et <b>→</b> du clavier pour naviguer</div>
+    <div class="dots" id="dots"></div>
+    <div class="nav-btns">
+      <button onclick="changeSlide(-1)">← Précédent</button>
+      <button onclick="changeSlide(1)">Suivant →</button>
+    </div>
+  </footer>
+
+  <script>
+    let current = 0;
+    const slides = document.querySelectorAll('.slide');
+    const titleEl = document.getElementById('slide-title');
+    const counterEl = document.getElementById('slide-counter');
+    const dotsContainer = document.getElementById('dots');
+
+    slides.forEach((_, idx) => {
+      const d = document.createElement('div');
+      d.className = 'dot' + (idx === 0 ? ' active' : '');
+      d.onclick = () => goToSlide(idx);
+      dotsContainer.appendChild(d);
+    });
+
+    function goToSlide(idx) {
+      slides[current].classList.remove('active');
+      dotsContainer.children[current].classList.remove('active');
+      current = (idx + slides.length) % slides.length;
+      slides[current].classList.add('active');
+      dotsContainer.children[current].classList.add('active');
+      titleEl.textContent = slides[current].dataset.title;
+      counterEl.textContent = `Slide ${current + 1} sur ${slides.length}`;
+    }
+
+    function changeSlide(dir) {
+      goToSlide(current + dir);
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowRight' || e.key === ' ') changeSlide(1);
+      if (e.key === 'ArrowLeft') changeSlide(-1);
+    });
+  </script>
+</body>
+</html>
