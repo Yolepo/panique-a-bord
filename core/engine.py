@@ -4,8 +4,27 @@ import threading
 from typing import Any, Dict, List, Optional, Tuple
 
 
-def calculate_distance(x1, y1, x2, y2):
+def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
+    r"""Calcule la distance euclidienne entre deux points (x1, y1) et (x2, y2).
+
+    Selon la règle RG-02 du cahier des charges, cette métrique permet d'évaluer
+    la proximité spatiale entre la position d'un drone (x_d, y_d) et celle d'un
+    incident détecté (x_i, y_i) sur le plan d'intervention 2D.
+
+    Formule mathématique de la distance euclidienne :
+        d = \sqrt{(x_d - x_i)^2 + (y_d - y_i)^2}
+
+    Args:
+        x1 (float): Coordonnée X du premier point (ex. position du drone x_d).
+        y1 (float): Coordonnée Y du premier point (ex. position du drone y_d).
+        x2 (float): Coordonnée X du second point (ex. position de l'incident x_i).
+        y2 (float): Coordonnée Y du second point (ex. position de l'incident y_i).
+
+    Returns:
+        float: Distance euclidienne entre les deux points.
+    """
     return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
 
 
 DEFAULT_DRONES = [
@@ -233,7 +252,8 @@ class SimulationEngine:
             for inc in incidents:
                 self.add_incident(inc)
 
-    def calculate_distance(self, x1, y1, x2, y2):
+    def calculate_distance(self, x1: float, y1: float, x2: float, y2: float) -> float:
+        """Calcule la distance euclidienne entre deux points selon RG-02."""
         return calculate_distance(x1, y1, x2, y2)
 
     def reset_drones(self) -> None:
