@@ -1,4 +1,4 @@
-"""Moteur télémétrique et algorithme de dispatch pour Panique à Bord."""
+import html
 import math
 import threading
 from typing import Any, Dict, List, Optional, Tuple
@@ -24,6 +24,30 @@ def calculate_distance(x1: float, y1: float, x2: float, y2: float) -> float:
         float: Distance euclidienne entre les deux points.
     """
     return math.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
+
+
+def validate_coordinate(val: Any) -> float:
+    """Valide qu'une coordonnée est numérique, finie et comprise dans [0, 100].
+
+    Args:
+        val: Valeur à valider.
+
+    Returns:
+        float: Coordonnée validée sous forme de float.
+
+    Raises:
+        ValueError: Si la coordonnée n'est pas numérique, est infinie/NaN,
+            ou n'appartient pas à l'intervalle [0, 100].
+    """
+    if val is None or isinstance(val, bool):
+        raise ValueError("Coordonnées hors limites [0..100]")
+    try:
+        f = float(val)
+    except (ValueError, TypeError):
+        raise ValueError("Coordonnées hors limites [0..100]")
+    if math.isnan(f) or math.isinf(f) or not (0.0 <= f <= 100.0):
+        raise ValueError("Coordonnées hors limites [0..100]")
+    return f
 
 
 
@@ -173,16 +197,24 @@ class Incident:
         y: float,
         severite: str = "MEDIUM",
         statut: str = "DETECTED",
+        description: str = "",
     ) -> None:
-        self.id = id
-        self.titre = titre
-        self.title = titre
-        self.x = float(x)
-        self.y = float(y)
-        self.severite = severite
-        self.severity = severite
-        self.statut = statut
-        self.status = statut
+        self.id = str(id)
+        # Assainissement XSS via html.escape
+        escaped_titre = html.escape(html.unescape(str(titre)))
+        self.titre = escaped_titre
+        self.title = escaped_titre
+        self.description = html.escape(html.unescape(str(description))) if description else ""
+        escaped_severite = html.escape(html.unescape(str(severite)))
+        self.severite = escaped_severite
+        self.severity = escaped_severite
+        self.statut = str(statut)
+        self.status = str(statut)
+
+        # Validation stricte des coordonnées radar [0..100]
+        self.x = validate_coordinate(x)
+        self.y = validate_coordinate(y)
+
         self.assigned_drone_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -190,6 +222,7 @@ class Incident:
             "id": self.id,
             "titre": self.titre,
             "title": self.title,
+            "description": self.description,
             "x": round(self.x, 2),
             "y": round(self.y, 2),
             "severite": self.severite,
@@ -204,16 +237,20 @@ class Incident:
 
     def __setitem__(self, key: str, value: Any) -> None:
         if key in ("statut", "status"):
-            self.statut = value
-            self.status = value
+            self.statut = str(value)
+            self.status = str(value)
         elif key in ("severite", "severity"):
-            self.severite = value
-            self.severity = value
+            val = html.escape(html.unescape(str(value)))
+            self.severite = val
+            self.severity = val
         elif key in ("titre", "title"):
-            self.titre = str(value)
-            self.title = str(value)
+            val = html.escape(html.unescape(str(value)))
+            self.titre = val
+            self.title = val
+        elif key == "description":
+            self.description = html.escape(html.unescape(str(value)))
         elif key in ("x", "y"):
-            setattr(self, key, float(value))
+            setattr(self, key, validate_coordinate(value))
         else:
             setattr(self, key, value)
 
@@ -293,18 +330,18 @@ class SimulationEngine:
 
     def add_incident(self, data: Dict[str, Any]) -> Dict[str, Any]:
         with self.lock:
+            # Validation stricte des coordonnées x et y [0..100]
+            if "x" not in data or "y" not in data:
+                raise ValueError("Coordonnées hors limites [0..100]")
+            x_val = validate_coordinate(data["x"])
+            y_val = validate_coordinate(data["y"])
+
             self._incident_counter += 1
             inc_id = str(data.get("id") or f"INC-{self._incident_counter:02d}")
             titre = str(data.get("titre") or data.get("title") or f"Incident #{self._incident_counter}")
             severite = str(data.get("severite") or data.get("severity") or "MEDIUM")
             statut = str(data.get("statut") or data.get("status") or "DETECTED")
-
-            try:
-                x_val = float(data.get("x", 50.0))
-                y_val = float(data.get("y", 50.0))
-            except (ValueError, TypeError):
-                x_val = 50.0
-                y_val = 50.0
+            description = str(data.get("description", ""))
 
             incident = Incident(
                 id=inc_id,
@@ -313,6 +350,7 @@ class SimulationEngine:
                 y=y_val,
                 severite=severite,
                 statut=statut,
+                description=description,
             )
             self.incidents.append(incident)
             return incident.to_dict()

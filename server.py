@@ -5,6 +5,7 @@ Développé en Python 3 standard (http.server) sans dépendance externe.
 Expose le tableau de bord naïf, l'API d'état de la flotte et les endpoints de télémétrie.
 """
 
+import html
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
@@ -15,7 +16,7 @@ import time
 from typing import Any, Dict, List
 import urllib.parse
 
-from core.engine import SimulationEngine
+from core.engine import SimulationEngine, validate_coordinate
 
 HOST = "0.0.0.0"
 PORT = 8080
@@ -136,7 +137,44 @@ class CrisisHttpHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": f"JSON invalide: {e}"})
                 return
 
-            new_incident = ENGINE.add_incident(data)
+            if not isinstance(data, dict):
+                self._send_json(400, {"error": "Format JSON invalide: objet attendu"})
+                return
+
+            # Validation stricte des coordonnées radar x et y [0..100]
+            if "x" not in data or "y" not in data:
+                self._send_json(400, {"error": "Coordonnées hors limites [0..100]"})
+                return
+
+            try:
+                x_coord = validate_coordinate(data["x"])
+                y_coord = validate_coordinate(data["y"])
+            except ValueError:
+                self._send_json(400, {"error": "Coordonnées hors limites [0..100]"})
+                return
+
+            # Assainissement des champs textuels avec html.escape
+            sanitized_data = dict(data)
+            sanitized_data["x"] = x_coord
+            sanitized_data["y"] = y_coord
+
+            if "titre" in sanitized_data:
+                sanitized_data["titre"] = html.escape(str(sanitized_data["titre"]))
+            if "title" in sanitized_data:
+                sanitized_data["title"] = html.escape(str(sanitized_data["title"]))
+            if "description" in sanitized_data:
+                sanitized_data["description"] = html.escape(str(sanitized_data["description"]))
+            if "severite" in sanitized_data:
+                sanitized_data["severite"] = html.escape(str(sanitized_data["severite"]))
+            if "severity" in sanitized_data:
+                sanitized_data["severity"] = html.escape(str(sanitized_data["severity"]))
+
+            try:
+                new_incident = ENGINE.add_incident(sanitized_data)
+            except ValueError:
+                self._send_json(400, {"error": "Coordonnées hors limites [0..100]"})
+                return
+
             self._send_json(200, {
                 "status": "ok",
                 "incident": new_incident,

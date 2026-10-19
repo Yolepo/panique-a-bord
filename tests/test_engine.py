@@ -6,6 +6,7 @@ from core.engine import (
     Incident,
     SimulationEngine,
     calculate_distance,
+    validate_coordinate,
 )
 
 
@@ -148,6 +149,114 @@ class TestSimulationEngine(unittest.TestCase):
         self.assertEqual(new_inc["titre"], "Alerte Tempête")
         self.assertEqual(new_inc["statut"], "DETECTED")
         self.assertEqual(len(engine.get_incidents()), 3)
+
+    def test_xss_sanitization_incident(self):
+        """Vérifie que les charges utiles XSS sont assainies via html.escape."""
+        engine = SimulationEngine()
+        payload = {
+            "title": "<img src=x onerror=alert('HACKED')> Intrusion Cyber",
+            "description": "<script>alert('pwned')</script>",
+            "severity": "<b style='color:red'>CRITICAL</b>",
+            "x": 50.0,
+            "y": 50.0,
+        }
+        inc = engine.add_incident(payload)
+
+        # Vérification qu'aucune balise HTML brute n'est stockée
+        self.assertNotIn("<img", inc["title"])
+        self.assertNotIn("<script", inc["description"])
+        self.assertNotIn("<b", inc["severity"])
+
+        # Vérification de l'échappement HTML effectif
+        self.assertIn("&lt;img", inc["title"])
+        self.assertIn("&lt;script&gt;", inc["description"])
+        self.assertIn("&lt;b", inc["severity"])
+        self.assertEqual(inc["title"], inc["titre"])
+        self.assertEqual(inc["severity"], inc["severite"])
+
+    def test_xss_sanitization_setitem(self):
+        """Vérifie que la modification par clé assainit également les payloads XSS."""
+        inc = Incident(
+            id="INC-SEC",
+            titre="Titre initial",
+            x=10.0,
+            y=10.0,
+        )
+        inc["titre"] = "<iframe src='malicious.site'></iframe>"
+        inc["description"] = "<svg onload=alert(1)>"
+        inc["severite"] = "<em>URGENT</em>"
+
+        self.assertNotIn("<iframe", inc["titre"])
+        self.assertIn("&lt;iframe", inc["titre"])
+        self.assertNotIn("<svg", inc["description"])
+        self.assertIn("&lt;svg", inc["description"])
+        self.assertNotIn("<em", inc["severite"])
+        self.assertIn("&lt;em", inc["severite"])
+
+    def test_coordinates_validation_valid(self):
+        """Vérifie l'acceptation de coordonnées valides sur la grille [0, 100]."""
+        engine = SimulationEngine()
+        valid_coords = [
+            (0.0, 0.0),
+            (100.0, 100.0),
+            (0, 100),
+            (100, 0),
+            (42.5, 78.2),
+            ("50", "25.5"),
+        ]
+        for x, y in valid_coords:
+            inc = engine.add_incident({"titre": "Coord Valide", "x": x, "y": y})
+            self.assertEqual(inc["x"], float(x))
+            self.assertEqual(inc["y"], float(y))
+
+    def test_coordinates_validation_out_of_bounds(self):
+        """Vérifie le rejet des coordonnées hors-radar (< 0 ou > 100)."""
+        engine = SimulationEngine()
+        out_of_bounds = [
+            (-9999, 50),
+            (50, 88888),
+            (-0.01, 50),
+            (50, 100.01),
+            (-1, -1),
+            (101, 101),
+        ]
+        for x, y in out_of_bounds:
+            with self.assertRaises(ValueError) as ctx:
+                engine.add_incident({"titre": "Hors radar", "x": x, "y": y})
+            self.assertIn("Coordonnées hors limites [0..100]", str(ctx.exception))
+
+        invalid_coords = [-9999, 88888, -0.01, 100.01, -1, 101]
+        for val in invalid_coords:
+            with self.assertRaises(ValueError):
+                validate_coordinate(val)
+
+    def test_coordinates_validation_invalid_types(self):
+        """Vérifie le rejet des coordonnées de type non numérique, booléen, NaN ou infini."""
+        engine = SimulationEngine()
+        invalid_values = [
+            "non_numerique",
+            None,
+            True,
+            False,
+            float("nan"),
+            float("inf"),
+            float("-inf"),
+        ]
+        for val in invalid_values:
+            with self.assertRaises(ValueError):
+                validate_coordinate(val)
+
+            with self.assertRaises(ValueError):
+                engine.add_incident({"titre": "Type Invalide", "x": val, "y": 50})
+
+            with self.assertRaises(ValueError):
+                engine.add_incident({"titre": "Type Invalide", "x": 50, "y": val})
+
+        # Test de l'absence de coordonnées x ou y
+        with self.assertRaises(ValueError):
+            engine.add_incident({"titre": "Sans coordonnées"})
+        with self.assertRaises(ValueError):
+            engine.add_incident({"titre": "Sans y", "x": 50})
 
 
 if __name__ == "__main__":
