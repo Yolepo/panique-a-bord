@@ -11,8 +11,11 @@ import mimetypes
 import os
 from pathlib import Path
 import threading
+import time
 from typing import Any, Dict, List
 import urllib.parse
+
+from core.engine import SimulationEngine
 
 HOST = "0.0.0.0"
 PORT = 8080
@@ -20,84 +23,10 @@ BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 DOCS_DIR = BASE_DIR / "docs"
 
-# Verrou de synchronisation pour l'accès concurrent à l'état
-STATE_LOCK = threading.Lock()
+# Moteur télémétrique temps réel et verrou de synchronisation
+ENGINE = SimulationEngine()
+STATE_LOCK = ENGINE.lock
 
-# État initial de la flotte de drones (au moins 4 : PAB-01 à PAB-04)
-DRONES: List[Dict[str, Any]] = [
-    {
-        "id": "PAB-01",
-        "nom": "PAB-01 Alpha",
-        "name": "PAB-01 Alpha",
-        "x": 20.0,
-        "y": 25.0,
-        "statut": "IDLE",
-        "status": "IDLE",
-        "batterie": 98,
-        "battery": 98,
-    },
-    {
-        "id": "PAB-02",
-        "nom": "PAB-02 Bravo",
-        "name": "PAB-02 Bravo",
-        "x": 75.0,
-        "y": 20.0,
-        "statut": "IDLE",
-        "status": "IDLE",
-        "batterie": 92,
-        "battery": 92,
-    },
-    {
-        "id": "PAB-03",
-        "nom": "PAB-03 Charlie",
-        "name": "PAB-03 Charlie",
-        "x": 30.0,
-        "y": 80.0,
-        "statut": "IDLE",
-        "status": "IDLE",
-        "batterie": 85,
-        "battery": 85,
-    },
-    {
-        "id": "PAB-04",
-        "nom": "PAB-04 Delta",
-        "name": "PAB-04 Delta",
-        "x": 80.0,
-        "y": 75.0,
-        "statut": "IDLE",
-        "status": "IDLE",
-        "batterie": 95,
-        "battery": 95,
-    },
-]
-
-# Incidents initiaux
-INCIDENTS: List[Dict[str, Any]] = [
-    {
-        "id": "INC-01",
-        "titre": "Incendie Zone Portuaire",
-        "title": "Incendie Zone Portuaire",
-        "x": 50.0,
-        "y": 45.0,
-        "severite": "HIGH",
-        "severity": "HIGH",
-        "statut": "DETECTED",
-        "status": "DETECTED",
-    },
-    {
-        "id": "INC-02",
-        "titre": "Avarie Moteur Pont Principal",
-        "title": "Avarie Moteur Pont Principal",
-        "x": 25.0,
-        "y": 65.0,
-        "severite": "MEDIUM",
-        "severity": "MEDIUM",
-        "statut": "DETECTED",
-        "status": "DETECTED",
-    },
-]
-
-INCIDENT_COUNTER = len(INCIDENTS)
 
 
 class CrisisHttpHandler(BaseHTTPRequestHandler):
@@ -153,11 +82,7 @@ class CrisisHttpHandler(BaseHTTPRequestHandler):
 
         # Endpoints API REST
         if path == "/api/state":
-            with STATE_LOCK:
-                state_data = {
-                    "drones": list(DRONES),
-                    "incidents": list(INCIDENTS),
-                }
+            state_data = ENGINE.get_state()
             self._send_json(200, state_data)
             return
 
@@ -199,7 +124,6 @@ class CrisisHttpHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         """Traite les requêtes HTTP POST."""
-        global INCIDENT_COUNTER
         parsed_url = urllib.parse.urlparse(self.path)
         path = parsed_url.path
 
@@ -212,38 +136,11 @@ class CrisisHttpHandler(BaseHTTPRequestHandler):
                 self._send_json(400, {"error": f"JSON invalide: {e}"})
                 return
 
-            with STATE_LOCK:
-                INCIDENT_COUNTER += 1
-                inc_id = data.get("id") or f"INC-{INCIDENT_COUNTER:02d}"
-                titre = data.get("titre") or data.get("title") or f"Incident #{INCIDENT_COUNTER}"
-                severite = data.get("severite") or data.get("severity") or "MEDIUM"
-                statut = data.get("statut") or data.get("status") or "DETECTED"
-                
-                try:
-                    x_val = float(data.get("x", 50.0))
-                    y_val = float(data.get("y", 50.0))
-                except (ValueError, TypeError):
-                    x_val = 50.0
-                    y_val = 50.0
-
-                new_incident = {
-                    "id": inc_id,
-                    "titre": titre,
-                    "title": titre,
-                    "x": x_val,
-                    "y": y_val,
-                    "severite": severite,
-                    "severity": severite,
-                    "statut": statut,
-                    "status": statut,
-                }
-                INCIDENTS.append(new_incident)
-                current_incidents = list(INCIDENTS)
-
+            new_incident = ENGINE.add_incident(data)
             self._send_json(200, {
                 "status": "ok",
                 "incident": new_incident,
-                "incidents": current_incidents,
+                "incidents": ENGINE.get_incidents(),
             })
             return
 
@@ -254,10 +151,25 @@ class CrisisHttpHandler(BaseHTTPRequestHandler):
         print(f"[HTTP] {self.address_string()} - {format % args}")
 
 
+def simulation_worker(engine: SimulationEngine, interval: float = 1.0) -> None:
+    """Boucle d'exécution périodique du moteur de simulation."""
+    while True:
+        try:
+            engine.tick()
+        except Exception as exc:
+            print(f"[ENGINE ERROR] {exc}")
+        time.sleep(interval)
+
+
 def run_server(host: str = HOST, port: int = PORT) -> None:
     """Démarre le serveur HTTP temps réel."""
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Démarrage de la boucle télémétrique en tâche de fond
+    sim_thread = threading.Thread(target=simulation_worker, args=(ENGINE, 1.0), daemon=True)
+    sim_thread.start()
+    print("🛰️ [SimulationEngine] Moteur télémétrique temps réel démarré (1 tick/sec)")
 
     server_address = (host, port)
     httpd = ThreadingHTTPServer(server_address, CrisisHttpHandler)
