@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Panique à Bord — Tableau de Bord Initial</title>
+    <style>
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background-color: #f0f2f5;
+            color: #333333;
+            margin: 0;
+            padding: 24px;
+        }
+        .container {
+            max-width: 960px;
+            margin: 0 auto;
+            background: #ffffff;
+            border: 1px solid #dcdcdc;
+            border-radius: 4px;
+            padding: 24px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        h1 {
+            color: #2c3e50;
+            font-size: 24px;
+            margin-top: 0;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 12px;
+        }
+        h2 {
+            font-size: 18px;
+            color: #34495e;
+            margin-top: 24px;
+            margin-bottom: 12px;
+        }
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            font-size: 12px;
+            font-weight: bold;
+            border-radius: 3px;
+        }
+        .status-idle { background: #e2e8f0; color: #475569; }
+        .status-en_route { background: #fef3c7; color: #92400e; }
+        .status-on_site { background: #dcfce7; color: #166534; }
+        .status-detected { background: #fee2e2; color: #991b1b; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 10px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #f8fafc;
+            color: #475569;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background-color: #fbfcfd;
+        }
+        form {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            padding: 16px;
+            border-radius: 4px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr auto;
+            gap: 12px;
+            align-items: end;
+        }
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        label {
+            font-size: 12px;
+            font-weight: 600;
+            color: #64748b;
+        }
+        input, select {
+            padding: 8px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 14px;
+            background: #ffffff;
+        }
+        button {
+            padding: 9px 16px;
+            background-color: #2563eb;
+            color: #ffffff;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #1d4ed8;
+        }
+        .meta-info {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 16px;
+            display: flex;
+            justify-content: space-between;
+        }
+        #alert-msg {
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 12px;
+            display: none;
+            font-size: 13px;
+        }
+        .alert-success { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
+        .alert-error { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Panique à Bord — Centre de Supervision (Prototype Naïf)</h1>
+        
+        <div id="alert-msg"></div>
+
+        <h2>État de la Flotte de Drones</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Identifiant</th>
+                    <th>Nom</th>
+                    <th>Position (X, Y)</th>
+                    <th>Statut</th>
+                    <th>Batterie</th>
+                </tr>
+            </thead>
+            <tbody id="drones-tbody">
+                <tr><td colspan="5" style="text-align: center;">Chargement de la flotte...</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Incidents Détectés & En Cours</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Titre de l'incident</th>
+                    <th>Position (X, Y)</th>
+                    <th>Sévérité</th>
+                    <th>Statut</th>
+                </tr>
+            </thead>
+            <tbody id="incidents-tbody">
+                <tr><td colspan="5" style="text-align: center;">Chargement des incidents...</td></tr>
+            </tbody>
+        </table>
+
+        <h2>Déclarer un Nouvel Incident</h2>
+        <form id="incident-form">
+            <div class="form-group">
+                <label for="inc-title">Titre de l'incident</label>
+                <input type="text" id="inc-title" name="titre" placeholder="Ex: Incendie pont supérieur" required>
+            </div>
+            <div class="form-group">
+                <label for="inc-x">Position X (0-100)</label>
+                <input type="number" id="inc-x" name="x" value="50" min="0" max="100" step="1" required>
+            </div>
+            <div class="form-group">
+                <label for="inc-y">Position Y (0-100)</label>
+                <input type="number" id="inc-y" name="y" value="50" min="0" max="100" step="1" required>
+            </div>
+            <div class="form-group">
+                <label for="inc-severity">Sévérité</label>
+                <select id="inc-severity" name="severite">
+                    <option value="LOW">LOW</option>
+                    <option value="MEDIUM" selected>MEDIUM</option>
+                    <option value="HIGH">HIGH</option>
+                    <option value="CRITICAL">CRITICAL</option>
+                </select>
+            </div>
+            <button type="submit">Déclarer</button>
+        </form>
+
+        <div class="meta-info">
+            <span id="last-update">Dernière mise à jour : --:--:--</span>
+            <span>Serveur HTTP Python 3 standard (Port 8080) | <a href="/api/docs" target="_blank" style="color: #2563eb;">Consulter /api/docs</a></span>
+        </div>
+    </div>
+
+    <script>
+        function showAlert(msg, isSuccess = true) {
+            const el = document.getElementById('alert-msg');
+            el.className = isSuccess ? 'alert-success' : 'alert-error';
+            el.textContent = msg;
+            el.style.display = 'block';
+            setTimeout(() => { el.style.display = 'none'; }, 4000);
+        }
+
+        async function fetchState() {
+            try {
+                const res = await fetch('/api/state');
+                if (!res.ok) throw new Error('Erreur HTTP ' + res.status);
+                const data = await res.json();
+                
+                // Mettre à jour les drones
+                const dronesTbody = document.getElementById('drones-tbody');
+                if (data.drones && data.drones.length > 0) {
+                    dronesTbody.innerHTML = data.drones.map(d => `
+                        <tr>
+                            <td><strong>${d.id}</strong></td>
+                            <td>${d.nom || d.name}</td>
+                            <td>(${d.x.toFixed(1)}, ${d.y.toFixed(1)})</td>
+                            <td><span class="badge status-${(d.statut || d.status || '').toLowerCase()}">${d.statut || d.status}</span></td>
+                            <td>${d.batterie ?? d.battery}%</td>
+                        </tr>
+                    `).join('');
+                } else {
+                    dronesTbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun drone enregistré.</td></tr>';
+                }
+
+                // Mettre à jour les incidents
+                const incidentsTbody = document.getElementById('incidents-tbody');
+                if (data.incidents && data.incidents.length > 0) {
+                    incidentsTbody.innerHTML = data.incidents.map(inc => `
+                        <tr>
+                            <td><strong>${inc.id}</strong></td>
+                            <td>${inc.titre || inc.title}</td>
+                            <td>(${inc.x.toFixed(1)}, ${inc.y.toFixed(1)})</td>
+                            <td><strong>${inc.severite || inc.severity}</strong></td>
+                            <td><span class="badge status-${(inc.statut || inc.status || '').toLowerCase()}">${inc.statut || inc.status}</span></td>
+                        </tr>
+                    `).join('');
+                } else {
+                    incidentsTbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Aucun incident actif.</td></tr>';
+                }
+
+                document.getElementById('last-update').textContent = 'Dernière mise à jour : ' + new Date().toLocaleTimeString();
+            } catch (err) {
+                console.error('Erreur rafraîchissement état:', err);
+            }
+        }
+
+        document.getElementById('incident-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const titre = document.getElementById('inc-title').value.trim();
+            const x = parseFloat(document.getElementById('inc-x').value);
+            const y = parseFloat(document.getElementById('inc-y').value);
+            const severite = document.getElementById('inc-severity').value;
+
+            if (!titre) return;
+
+            try {
+                const res = await fetch('/api/incidents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        titre: titre,
+                        title: titre,
+                        x: x,
+                        y: y,
+                        severite: severite,
+                        severity: severite
+                    })
+                });
+
+                if (res.ok) {
+                    showAlert('Incident "' + titre + '" enregistré avec succès.');
+                    document.getElementById('inc-title').value = '';
+                    fetchState();
+                } else {
+                    showAlert('Erreur lors de l\'enregistrement de l\'incident (HTTP ' + res.status + ')', false);
+                }
+            } catch (err) {
+                showAlert('Erreur réseau : ' + err.message, false);
+            }
+        });
+
+        fetchState();
+        setInterval(fetchState, 3000);
+    </script>
+</body>
+</html>

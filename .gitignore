@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+*.swp
+*~
+.DS_Store
+.agents
+AGENTS.md
