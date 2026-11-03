@@ -1,15 +1,21 @@
 """
 Moteur de simulation et télémétrie - Panique à Bord
-Gestion des drones, boucle temps réel et dispatch des incidents
+Gestion de flotte de drones, boucle temps réel et algorithme de dispatch RG-02
 """
 
 import math
+from typing import List, Dict, Optional, Tuple, Any, Union
 
 
 class SimulationEngine:
-    def __init__(self, drones=None, incidents=None, speed=5.0):
+    def __init__(
+        self,
+        drones: Optional[List[Dict[str, Any]]] = None,
+        incidents: Optional[List[Dict[str, Any]]] = None,
+        speed: float = 5.0,
+    ) -> None:
         if drones is None:
-            self.drones = [
+            self.drones: List[Dict[str, Any]] = [
                 {
                     "id": "PAB-01",
                     "nom": "PAB-01",
@@ -63,7 +69,7 @@ class SimulationEngine:
             self.drones = drones
 
         if incidents is None:
-            self.incidents = [
+            self.incidents: List[Dict[str, Any]] = [
                 {
                     "id": "INC-01",
                     "titre": "Alerte intrusion nord",
@@ -90,10 +96,25 @@ class SimulationEngine:
         else:
             self.incidents = incidents
 
-        self.speed = speed
-        self.incident_counter = len(self.incidents)
+        self.speed: float = speed
+        self.incident_counter: int = len(self.incidents)
 
-    def calculate_distance(self, p1, p2):
+    def calculate_distance(self, p1: Dict[str, Any], p2: Dict[str, Any]) -> float:
+        """
+        Calcule la distance euclidienne entre deux entités selon la règle métier RG-02.
+
+        Formule mathématique RG-02 :
+            d = sqrt((x2 - x1)^2 + (y2 - y1)^2)
+
+        Paramètres :
+            p1 (Dict[str, Any]): Première entité contenant au minimum les coordonnées 'x' et 'y'.
+            p2 (Dict[str, Any]): Seconde entité contenant au minimum les coordonnées 'x' et 'y'.
+
+        Retour :
+            float: La distance euclidienne calculée.
+                   Retourne float('inf') comme valeur de repli sécurisée en cas d'erreur
+                   de conversion numérique ou de coordonnées manquantes.
+        """
         try:
             x1 = float(p1["x"])
             y1 = float(p1["y"])
@@ -103,7 +124,14 @@ class SimulationEngine:
         except (ValueError, TypeError, KeyError):
             return float("inf")
 
-    def find_nearest_available_drone(self, incident):
+    def find_nearest_available_drone(self, incident: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        """
+        Recherche le drone disponible le plus proche selon la règle métier RG-02.
+        Critères d'éligibilité :
+        - Statut IDLE
+        - Niveau de batterie > 15%
+        - Distance euclidienne minimale vers l'incident cible
+        """
         available_drones = [
             d for d in self.drones
             if (d.get("statut") == "IDLE" or d.get("status") == "IDLE")
@@ -112,8 +140,8 @@ class SimulationEngine:
         if not available_drones:
             return None
 
-        best_drone = None
-        min_dist = float("inf")
+        best_drone: Optional[Dict[str, Any]] = None
+        min_dist: float = float("inf")
         for drone in available_drones:
             dist = self.calculate_distance(drone, incident)
             if dist < min_dist:
@@ -121,8 +149,12 @@ class SimulationEngine:
                 best_drone = drone
         return best_drone
 
-    def dispatch_incidents(self):
-        assignments = []
+    def dispatch_incidents(self) -> List[Tuple[str, str]]:
+        """
+        Affecte automatiquement les incidents en attente (DETECTED) aux drones disponibles.
+        Passe le drone en EN_ROUTE et l'incident en ASSIGNED.
+        """
+        assignments: List[Tuple[str, str]] = []
         for inc in self.incidents:
             if inc.get("statut") == "DETECTED" or inc.get("status") == "DETECTED":
                 drone = self.find_nearest_available_drone(inc)
@@ -135,19 +167,28 @@ class SimulationEngine:
                     assignments.append((drone["id"], inc["id"]))
         return assignments
 
-    def add_incident(self, title, x, y, severity="MOYENNE"):
+    def add_incident(
+        self,
+        title: str,
+        x: Union[float, int, str],
+        y: Union[float, int, str],
+        severity: str = "MOYENNE",
+    ) -> Dict[str, Any]:
+        """
+        Ajoute un nouvel incident actif sur la grille opérationnelle.
+        """
         self.incident_counter += 1
         inc_id = f"INC-{self.incident_counter:02d}"
         try:
-            x_val = float(x)
+            x_val: Union[float, str] = float(x)
         except (ValueError, TypeError):
             x_val = x
         try:
-            y_val = float(y)
+            y_val: Union[float, str] = float(y)
         except (ValueError, TypeError):
             y_val = y
 
-        incident = {
+        incident: Dict[str, Any] = {
             "id": inc_id,
             "titre": title,
             "title": title,
@@ -161,7 +202,14 @@ class SimulationEngine:
         self.incidents.append(incident)
         return incident
 
-    def tick(self):
+    def tick(self) -> None:
+        """
+        Cycle de télémétrie temps réel :
+        1. Avancement vectoriel des drones EN_ROUTE vers leur incident cible.
+        2. Résolution des incidents lorsque la distance passe sous le seuil de 3.0 unités.
+        3. Consommation énergétique en vol et recharge progressive en stationnement IDLE.
+        4. Déclenchement du dispatch automatique RG-02.
+        """
         # 1. Mise à jour de la position des drones
         for drone in self.drones:
             statut = drone.get("statut") or drone.get("status")
