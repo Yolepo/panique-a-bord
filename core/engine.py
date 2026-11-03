@@ -1,10 +1,40 @@
 """
 Moteur de simulation et télémétrie - Panique à Bord
-Gestion de flotte de drones, boucle temps réel et algorithme de dispatch RG-02
+Gestion de flotte de drones, boucle temps réel, algorithme de dispatch RG-02
+et sécurisation RG-04 (validation stricte, anti-XSS et plafonnement)
 """
 
+import html
 import math
 from typing import List, Dict, Optional, Tuple, Any, Union
+
+MAX_ACTIVE_INCIDENTS: int = 10
+
+VALID_SEVERITIES: Dict[str, Tuple[str, str]] = {
+    "LOW": ("FAIBLE", "LOW"),
+    "FAIBLE": ("FAIBLE", "LOW"),
+    "MEDIUM": ("MOYENNE", "MEDIUM"),
+    "MOYENNE": ("MOYENNE", "MEDIUM"),
+    "HIGH": ("HAUTE", "HIGH"),
+    "HAUTE": ("HAUTE", "HIGH"),
+    "CRITICAL": ("CRITIQUE", "CRITICAL"),
+    "CRITIQUE": ("CRITIQUE", "CRITICAL"),
+}
+
+
+class InvalidCoordinatesError(ValueError):
+    """Exception levée en cas de coordonnées non conformes ou hors-radar [0, 100]."""
+    pass
+
+
+class InvalidSeverityError(ValueError):
+    """Exception levée en cas de niveau de sévérité non autorisé."""
+    pass
+
+
+class ActiveIncidentLimitError(Exception):
+    """Exception levée lorsque la file d'incidents actifs atteint le plafond RG-04."""
+    pass
 
 
 class SimulationEngine:
@@ -175,27 +205,66 @@ class SimulationEngine:
         severity: str = "MOYENNE",
     ) -> Dict[str, Any]:
         """
-        Ajoute un nouvel incident actif sur la grille opérationnelle.
+        Ajoute un nouvel incident actif sur la grille opérationnelle avec validation RG-04.
+
+        Règles de validation :
+        - [SEC-01] Titre assaini via html.escape (quote=True) et tronqué à 120 caractères.
+        - [CHAOS-02] Coordonnées strictement comprises dans [0.0, 100.0] et finies.
+        - [CHAOS-02] Sévérité conforme aux niveaux autorisés (LOW, MEDIUM, HIGH, CRITICAL).
+        - [CHAOS-03] Plafond d'incidents actifs limité à MAX_ACTIVE_INCIDENTS (10).
+
+        Lève :
+            ActiveIncidentLimitError: Si le plafond d'incidents actifs est atteint.
+            InvalidCoordinatesError: Si x ou y est invalide ou hors des bornes [0, 100].
+            InvalidSeverityError: Si le niveau de sévérité est inconnu.
         """
+        # 1. Vérification du plafond d'incidents actifs (RG-04 / [CHAOS-03])
+        active_count = sum(
+            1 for inc in self.incidents
+            if inc.get("statut") != "RESOLVED" and inc.get("status") != "RESOLVED"
+        )
+        if active_count >= MAX_ACTIVE_INCIDENTS:
+            raise ActiveIncidentLimitError("Active incident queue limit reached (RG-04)")
+
+        # 2. Validation et échappement anti-XSS ([SEC-01])
+        raw_str = str(title).strip() if title is not None else ""
+        if not raw_str:
+            clean_title = f"Incident #{self.incident_counter + 1}"
+        else:
+            clean_title = html.escape(raw_str[:120], quote=True)
+
+        # 3. Validation stricte des coordonnées géographiques ([CHAOS-02])
+        if isinstance(x, bool) or isinstance(y, bool):
+            raise InvalidCoordinatesError("Invalid coordinates: x and y must be within [0, 100]")
+        try:
+            x_float = float(x)
+            y_float = float(y)
+        except (ValueError, TypeError):
+            raise InvalidCoordinatesError("Invalid coordinates: x and y must be within [0, 100]")
+
+        if not math.isfinite(x_float) or not math.isfinite(y_float):
+            raise InvalidCoordinatesError("Invalid coordinates: x and y must be within [0, 100]")
+
+        if not (0.0 <= x_float <= 100.0 and 0.0 <= y_float <= 100.0):
+            raise InvalidCoordinatesError("Invalid coordinates: x and y must be within [0, 100]")
+
+        # 4. Validation stricte de la sévérité ([CHAOS-02])
+        sev_key = str(severity).strip().upper() if severity is not None else "MOYENNE"
+        if sev_key not in VALID_SEVERITIES:
+            raise InvalidSeverityError("Invalid severity level")
+        sev_fr, sev_en = VALID_SEVERITIES[sev_key]
+
         self.incident_counter += 1
         inc_id = f"INC-{self.incident_counter:02d}"
-        try:
-            x_val: Union[float, str] = float(x)
-        except (ValueError, TypeError):
-            x_val = x
-        try:
-            y_val: Union[float, str] = float(y)
-        except (ValueError, TypeError):
-            y_val = y
 
         incident: Dict[str, Any] = {
             "id": inc_id,
-            "titre": title,
-            "title": title,
-            "x": x_val,
-            "y": y_val,
-            "severite": severity,
-            "severity": severity,
+            "titre": clean_title,
+            "title": clean_title,
+            "x": round(x_float, 2),
+            "y": round(y_float, 2),
+            "severite": sev_fr,
+            "severity": sev_en,
             "statut": "DETECTED",
             "status": "DETECTED",
         }

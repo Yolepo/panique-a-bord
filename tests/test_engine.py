@@ -1,9 +1,17 @@
 """
-Tests unitaires pour le moteur de simulation et de télémétrie
+Tests unitaires pour le moteur de simulation et de télémétrie - Panique à Bord
+Couverture fonctionnelle (RG-02) et sécuritaire (RG-04, XSS, Bornes radar, Plafonnement)
 """
 
+import math
 import unittest
-from core.engine import SimulationEngine
+from core.engine import (
+    SimulationEngine,
+    InvalidCoordinatesError,
+    InvalidSeverityError,
+    ActiveIncidentLimitError,
+    MAX_ACTIVE_INCIDENTS,
+)
 
 
 class TestSimulationEngine(unittest.TestCase):
@@ -56,18 +64,15 @@ class TestSimulationEngine(unittest.TestCase):
         self.assertAlmostEqual(dist, 5.0, places=5)
 
     def test_find_nearest_available_drone(self):
-        # L'incident est en (13, 14), PAB-01 est en (10, 10) (dist 5.0), PAB-02 est en (80, 80)
         nearest = self.engine.find_nearest_available_drone(self.incidents[0])
         self.assertIsNotNone(nearest)
         self.assertEqual(nearest["id"], "PAB-01")
 
     def test_battery_threshold_filter(self):
-        # PAB-01 est plus proche mais avec batterie critique (<= 15%)
         self.drones[0]["batterie"] = 12.0
         self.drones[0]["battery"] = 12.0
 
         nearest = self.engine.find_nearest_available_drone(self.incidents[0])
-        # PAB-01 doit être ignoré au profit de PAB-02 qui a 50%
         self.assertIsNotNone(nearest)
         self.assertEqual(nearest["id"], "PAB-02")
 
@@ -84,14 +89,12 @@ class TestSimulationEngine(unittest.TestCase):
         initial_x = self.drones[0]["x"]
         initial_y = self.drones[0]["y"]
 
-        # 1er tick : le drone se déplace vers (13, 14)
         self.engine.tick()
 
         self.assertGreater(self.drones[0]["x"], initial_x)
         self.assertGreater(self.drones[0]["y"], initial_y)
 
     def test_tick_resolution(self):
-        # Positionner le drone tout près de l'incident (distance < 3.0)
         self.drones[0]["x"] = 12.5
         self.drones[0]["y"] = 13.5
         self.drones[0]["statut"] = "EN_ROUTE"
@@ -102,23 +105,65 @@ class TestSimulationEngine(unittest.TestCase):
 
         self.engine.tick()
 
-        # L'incident doit être RESOLVED et le drone IDLE
         self.assertEqual(self.incidents[0]["statut"], "RESOLVED")
         self.assertEqual(self.incidents[0]["status"], "RESOLVED")
         self.assertEqual(self.drones[0]["statut"], "IDLE")
         self.assertEqual(self.drones[0]["status"], "IDLE")
         self.assertIsNone(self.drones[0]["target_id"])
 
-    def test_robustness_extreme_coordinates(self):
-        # Ajout d'un incident avec coordonnées hors-radar extrêmes
-        extreme_inc = self.engine.add_incident("Chaos Out of Bounds", -9999.0, 88888.0, "CRITIQUE")
-        self.assertIn(extreme_inc, self.engine.incidents)
+    # --- Tests Sécurité & Robustesse RG-04 ---
 
-        # Un tick ne doit pas lever d'exception
-        try:
-            self.engine.tick()
-        except Exception as e:
-            self.fail(f"tick() a levé une exception inattendue: {e}")
+    def test_xss_sanitization(self):
+        raw_payload = "<img src=x onerror=alert('HACKED')> Intrusion Cyber"
+        inc = self.engine.add_incident(raw_payload, 50.0, 50.0, "CRITICAL")
+        self.assertNotIn("<img", inc["titre"])
+        self.assertNotIn("<img", inc["title"])
+        self.assertIn("&lt;img", inc["titre"])
+        self.assertIn("&lt;img", inc["title"])
+
+    def test_coordinates_out_of_bounds_rejected(self):
+        # Coordonnées négatives
+        with self.assertRaises(InvalidCoordinatesError):
+            self.engine.add_incident("Hors bornes négatif", -9999.0, 50.0, "CRITICAL")
+
+        # Coordonnées supérieures à 100
+        with self.assertRaises(InvalidCoordinatesError):
+            self.engine.add_incident("Hors bornes supérieur", 50.0, 88888.0, "CRITICAL")
+
+        # Non numérique
+        with self.assertRaises(InvalidCoordinatesError):
+            self.engine.add_incident("Texte", "abc", 50.0, "CRITICAL")
+
+        # Booléen
+        with self.assertRaises(InvalidCoordinatesError):
+            self.engine.add_incident("Bool", True, 50.0, "CRITICAL")
+
+        # Valeur infinie / NaN
+        with self.assertRaises(InvalidCoordinatesError):
+            self.engine.add_incident("Infini", float("inf"), 50.0, "CRITICAL")
+
+    def test_invalid_severity_rejected(self):
+        with self.assertRaises(InvalidSeverityError):
+            self.engine.add_incident("Sévérité invalide", 50.0, 50.0, "INVALID_LEVEL")
+
+    def test_valid_severities_accepted(self):
+        for sev in ["LOW", "MEDIUM", "HIGH", "CRITICAL", "FAIBLE", "MOYENNE", "HAUTE", "CRITIQUE"]:
+            inc = self.engine.add_incident(f"Incident {sev}", 50.0, 50.0, sev)
+            self.assertIn(inc["severite"], ["FAIBLE", "MOYENNE", "HAUTE", "CRITIQUE"])
+            self.assertIn(inc["severity"], ["LOW", "MEDIUM", "HIGH", "CRITICAL"])
+
+    def test_active_incident_queue_limit(self):
+        # Créer des incidents jusqu'au plafond (actuellement 1 initial + ceux ajoutés)
+        # On vide la liste d'incidents pour tester précisément
+        self.engine.incidents.clear()
+        self.engine.incident_counter = 0
+
+        for i in range(MAX_ACTIVE_INCIDENTS):
+            self.engine.add_incident(f"Incident #{i+1}", 20.0, 20.0, "MOYENNE")
+
+        # Le 11ème incident actif doit déclencher ActiveIncidentLimitError
+        with self.assertRaises(ActiveIncidentLimitError):
+            self.engine.add_incident("Incident Excédentaire", 20.0, 20.0, "MOYENNE")
 
 
 if __name__ == "__main__":

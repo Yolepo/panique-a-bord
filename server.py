@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Serveur HTTP temps réel - Panique à Bord
-Moteur télémétrique et API de gestion de crise
+Moteur télémétrique et API de gestion de crise durcie (RG-04)
 """
 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
@@ -13,7 +13,12 @@ import time
 import threading
 from pathlib import Path
 
-from core.engine import SimulationEngine
+from core.engine import (
+    SimulationEngine,
+    InvalidCoordinatesError,
+    InvalidSeverityError,
+    ActiveIncidentLimitError,
+)
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
@@ -107,34 +112,60 @@ class PaniqueHandler(BaseHTTPRequestHandler):
             try:
                 data = json.loads(raw_body.decode("utf-8")) if raw_body else {}
             except Exception:
-                data = {}
+                self._send_json({"ok": False, "error": "Invalid JSON payload"}, status_code=400)
+                return
 
-            title_val = data.get("titre") if data.get("titre") is not None else data.get("title", "Incident Signalé")
+            if not isinstance(data, dict):
+                self._send_json({"ok": False, "error": "JSON object expected"}, status_code=400)
+                return
+
+            title_val = data.get("titre") if data.get("titre") is not None else data.get("title")
             severity_val = data.get("severite") if data.get("severite") is not None else data.get("severity", "MOYENNE")
-            x_val = data.get("x", 50.0)
-            y_val = data.get("y", 50.0)
+            x_val = data.get("x")
+            y_val = data.get("y")
+
+            if x_val is None or y_val is None:
+                self._send_json(
+                    {"ok": False, "error": "Invalid coordinates: x and y must be within [0, 100]"},
+                    status_code=400,
+                )
+                return
 
             with STATE_LOCK:
-                new_incident = ENGINE.add_incident(title_val, x_val, y_val, severity_val)
-                new_incident["title"] = title_val
-                new_incident["severity"] = severity_val
+                try:
+                    new_incident = ENGINE.add_incident(title_val, x_val, y_val, severity_val)
+                except InvalidCoordinatesError as e:
+                    self._send_json({"ok": False, "error": str(e)}, status_code=400)
+                    return
+                except InvalidSeverityError as e:
+                    self._send_json({"ok": False, "error": str(e)}, status_code=400)
+                    return
+                except ActiveIncidentLimitError as e:
+                    self._send_json({"ok": False, "error": str(e)}, status_code=429)
+                    return
+                except ValueError as e:
+                    self._send_json({"ok": False, "error": str(e)}, status_code=400)
+                    return
 
-            self._send_json({"ok": True, "incident": new_incident})
+            self._send_json({"ok": True, "incident": new_incident}, status_code=200)
             return
 
         if url_path == "/api/simulate":
             with STATE_LOCK:
                 created = []
                 samples = [
-                    ("Alerte Panne Électrique", "CRITIQUE"),
-                    ("Fuite Chimique Cuve B", "MOYENNE"),
-                    ("Anomalie Détecteur Infrarouge", "INFO"),
+                    ("Alerte Panne Électrique", "CRITICAL"),
+                    ("Fuite Chimique Cuve B", "MEDIUM"),
+                    ("Anomalie Détecteur Infrarouge", "LOW"),
                 ]
                 for title, sev in samples:
                     x = round(random.uniform(10.0, 90.0), 1)
                     y = round(random.uniform(10.0, 90.0), 1)
-                    inc = ENGINE.add_incident(title, x, y, sev)
-                    created.append(inc)
+                    try:
+                        inc = ENGINE.add_incident(title, x, y, sev)
+                        created.append(inc)
+                    except Exception:
+                        pass
             self._send_json({"ok": True, "generated": created})
             return
 
