@@ -1,98 +1,29 @@
 #!/usr/bin/env python3
 """
 Serveur HTTP temps réel - Panique à Bord
-Prototype Naïf pour l'Issue #1
+Moteur télémétrique et API de gestion de crise
 """
 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import json
 import os
+import random
 import sys
+import time
 import threading
 from pathlib import Path
+
+from core.engine import SimulationEngine
 
 BASE_DIR = Path(__file__).resolve().parent
 STATIC_DIR = BASE_DIR / "static"
 DOCS_DIR = BASE_DIR / "docs"
 
-# Verrou de synchronisation pour les données en mémoire
+# Verrou de synchronisation pour l'état en mémoire
 STATE_LOCK = threading.Lock()
 
-# État initial de la flotte de drones
-DRONES = [
-    {
-        "id": "PAB-01",
-        "nom": "PAB-01",
-        "name": "PAB-01",
-        "x": 20.0,
-        "y": 30.0,
-        "statut": "IDLE",
-        "status": "IDLE",
-        "batterie": 100,
-        "battery": 100,
-    },
-    {
-        "id": "PAB-02",
-        "nom": "PAB-02",
-        "name": "PAB-02",
-        "x": 70.0,
-        "y": 40.0,
-        "statut": "IDLE",
-        "status": "IDLE",
-        "batterie": 85,
-        "battery": 85,
-    },
-    {
-        "id": "PAB-03",
-        "nom": "PAB-03",
-        "name": "PAB-03",
-        "x": 40.0,
-        "y": 80.0,
-        "statut": "IDLE",
-        "status": "IDLE",
-        "batterie": 92,
-        "battery": 92,
-    },
-    {
-        "id": "PAB-04",
-        "nom": "PAB-04",
-        "name": "PAB-04",
-        "x": 80.0,
-        "y": 85.0,
-        "statut": "IDLE",
-        "status": "IDLE",
-        "batterie": 78,
-        "battery": 78,
-    },
-]
-
-# État initial des incidents
-INCIDENTS = [
-    {
-        "id": "INC-01",
-        "titre": "Alerte intrusion nord",
-        "title": "Alerte intrusion nord",
-        "x": 25.0,
-        "y": 35.0,
-        "severite": "CRITIQUE",
-        "severity": "CRITICAL",
-        "statut": "DETECTED",
-        "status": "DETECTED",
-    },
-    {
-        "id": "INC-02",
-        "titre": "Fumée suspecte hangar",
-        "title": "Fumée suspecte hangar",
-        "x": 65.0,
-        "y": 50.0,
-        "severite": "MOYENNE",
-        "severity": "MEDIUM",
-        "statut": "DETECTED",
-        "status": "DETECTED",
-    },
-]
-
-incident_counter = len(INCIDENTS)
+# Initialisation du moteur de simulation
+ENGINE = SimulationEngine()
 
 
 class PaniqueHandler(BaseHTTPRequestHandler):
@@ -127,8 +58,8 @@ class PaniqueHandler(BaseHTTPRequestHandler):
         if url_path == "/api/state":
             with STATE_LOCK:
                 payload = {
-                    "drones": [dict(d) for d in DRONES],
-                    "incidents": [dict(i) for i in INCIDENTS],
+                    "drones": [dict(d) for d in ENGINE.drones],
+                    "incidents": [dict(i) for i in ENGINE.incidents],
                 }
             self._send_json(payload)
             return
@@ -178,40 +109,33 @@ class PaniqueHandler(BaseHTTPRequestHandler):
             except Exception:
                 data = {}
 
-            global incident_counter
+            title_val = data.get("titre") if data.get("titre") is not None else data.get("title", "Incident Signalé")
+            severity_val = data.get("severite") if data.get("severite") is not None else data.get("severity", "MOYENNE")
+            x_val = data.get("x", 50.0)
+            y_val = data.get("y", 50.0)
+
             with STATE_LOCK:
-                incident_counter += 1
-                inc_id = f"INC-{incident_counter:02d}"
-
-                title_val = data.get("titre") if data.get("titre") is not None else data.get("title", f"Incident #{incident_counter}")
-                severity_val = data.get("severite") if data.get("severite") is not None else data.get("severity", "MOYENNE")
-                x_val = data.get("x", 50.0)
-                y_val = data.get("y", 50.0)
-
-                try:
-                    x_num = float(x_val)
-                except (ValueError, TypeError):
-                    x_num = x_val
-                try:
-                    y_num = float(y_val)
-                except (ValueError, TypeError):
-                    y_num = y_val
-
-                # Prototype naïf : stockage sans filtrage XSS ni bornage de coordonnées
-                new_incident = {
-                    "id": inc_id,
-                    "titre": title_val,
-                    "title": title_val,
-                    "x": x_num,
-                    "y": y_num,
-                    "severite": severity_val,
-                    "severity": severity_val,
-                    "statut": "DETECTED",
-                    "status": "DETECTED",
-                }
-                INCIDENTS.append(new_incident)
+                new_incident = ENGINE.add_incident(title_val, x_val, y_val, severity_val)
+                new_incident["title"] = title_val
+                new_incident["severity"] = severity_val
 
             self._send_json({"ok": True, "incident": new_incident})
+            return
+
+        if url_path == "/api/simulate":
+            with STATE_LOCK:
+                created = []
+                samples = [
+                    ("Alerte Panne Électrique", "CRITIQUE"),
+                    ("Fuite Chimique Cuve B", "MOYENNE"),
+                    ("Anomalie Détecteur Infrarouge", "INFO"),
+                ]
+                for title, sev in samples:
+                    x = round(random.uniform(10.0, 90.0), 1)
+                    y = round(random.uniform(10.0, 90.0), 1)
+                    inc = ENGINE.add_incident(title, x, y, sev)
+                    created.append(inc)
+            self._send_json({"ok": True, "generated": created})
             return
 
         self.send_error(404, f"Route non trouvée: {url_path}")
@@ -220,7 +144,23 @@ class PaniqueHandler(BaseHTTPRequestHandler):
         sys.stderr.write(f"[{self.log_date_time_string()}] {format % args}\n")
 
 
+def start_engine_loop(interval=0.5):
+    def loop():
+        while True:
+            time.sleep(interval)
+            with STATE_LOCK:
+                try:
+                    ENGINE.tick()
+                except Exception as e:
+                    sys.stderr.write(f"Erreur boucle télémétrie: {e}\n")
+
+    t = threading.Thread(target=loop, daemon=True)
+    t.start()
+    return t
+
+
 def run(host="127.0.0.1", port=8080):
+    start_engine_loop(interval=0.5)
     ThreadingHTTPServer.allow_reuse_address = True
     server_address = (host, port)
     httpd = ThreadingHTTPServer(server_address, PaniqueHandler)
