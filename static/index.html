@@ -1,244 +1,174 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Panique à Bord - Supervision Naïve</title>
-    <style>
-        body {
-            background-color: #f4f4f4;
-            color: #222222;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-            margin: 20px auto;
-            max-width: 900px;
-            padding: 0 15px;
-        }
-        h1, h2 {
-            color: #333333;
-            border-bottom: 2px solid #ddd;
-            padding-bottom: 5px;
-        }
-        .section {
-            background-color: #ffffff;
-            border: 1px solid #cccccc;
-            border-radius: 4px;
-            padding: 15px;
-            margin-bottom: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-            background-color: #ffffff;
-        }
-        th, td {
-            border: 1px solid #cccccc;
-            padding: 8px 12px;
-            text-align: left;
-        }
-        th {
-            background-color: #e9e9e9;
-            font-weight: bold;
-        }
-        tr:nth-child(even) {
-            background-color: #fbfbfb;
-        }
-        form {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-top: 10px;
-        }
-        .form-group {
-            display: flex;
-            flex-direction: column;
-        }
-        .form-group.full {
-            grid-column: span 2;
-        }
-        label {
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
-        input, select, button {
-            padding: 8px 10px;
-            font-size: 14px;
-            border: 1px solid #cccccc;
-            border-radius: 3px;
-        }
-        button {
-            background-color: #e0e0e0;
-            color: #111111;
-            cursor: pointer;
-            font-weight: bold;
-            border: 1px solid #999999;
-        }
-        button:hover {
-            background-color: #d0d0d0;
-        }
-        .status-bar {
-            font-size: 12px;
-            color: #666666;
-            margin-top: 10px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>🚨 PANIQUE À BORD — Mission Control</title>
+  <style>
+    :root {
+      --bg: #060b16; --panel: rgba(13, 22, 41, 0.85); --border: rgba(0, 240, 255, 0.3);
+      --cyan: #00f0ff; --emerald: #00ff9d; --crimson: #ff2a5f; --amber: #ffb800; --text: #e6f1ff;
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); padding: 12px; }
+    header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 8px; }
+    h1 { margin: 0; font-size: 1.25rem; color: var(--cyan); text-shadow: 0 0 10px rgba(0,240,255,0.5); }
+    .badge { padding: 4px 10px; border-radius: 999px; font-size: 0.8rem; font-weight: bold; }
+    .badge-active { background: rgba(0,255,157,0.15); color: var(--emerald); border: 1px solid var(--emerald); }
+    .badge-crit { background: rgba(255,42,95,0.15); color: var(--crimson); border: 1px solid var(--crimson); }
+    .nav-btn { background: var(--panel); border: 1px solid var(--border); color: var(--text); padding: 6px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+    .nav-btn.active { border-color: var(--cyan); color: var(--cyan); box-shadow: 0 0 8px rgba(0,240,255,0.4); }
+    .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; backdrop-filter: blur(8px); }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+    .radar-box {
+      position: relative; width: 100%; height: 350px; border-radius: 10px; overflow: hidden;
+      background: radial-gradient(circle, transparent 28%, rgba(0,240,255,0.12) 29%, transparent 30%),
+                  radial-gradient(circle, transparent 58%, rgba(0,240,255,0.12) 59%, transparent 60%),
+                  linear-gradient(rgba(0,240,255,0.06) 1px, transparent 1px),
+                  linear-gradient(90deg, rgba(0,240,255,0.06) 1px, transparent 1px), #040811;
+      background-size: 100% 100%, 100% 100%, 10% 10%, 10% 10%;
+      border: 1px solid var(--cyan); cursor: crosshair;
+    }
+    .dot { position: absolute; transform: translate(-50%, -50%); transition: all 0.4s linear; font-size: 11px; font-weight: bold; white-space: nowrap; pointer-events: none; }
+    .drone { color: var(--cyan); text-shadow: 0 0 8px var(--cyan); }
+    .inc { color: var(--crimson); text-shadow: 0 0 10px var(--crimson); animation: pulse 1s infinite alternate; }
+    @keyframes pulse { from { transform: translate(-50%, -50%) scale(0.9); } to { transform: translate(-50%, -50%) scale(1.15); } }
+    .btn { background: var(--cyan); color: #000; border: none; padding: 6px 12px; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .btn-crit { background: var(--crimson); color: #fff; box-shadow: 0 0 10px rgba(255,42,95,0.4); }
+    table { width: 100%; border-collapse: collapse; font-size: 0.82rem; margin-top: 6px; }
+    th, td { border-bottom: 1px solid rgba(255,255,255,0.08); padding: 5px 6px; text-align: left; }
+    th { color: var(--cyan); }
+    pre { background: rgba(0,0,0,0.4); border: 1px solid var(--border); border-radius: 8px; padding: 12px; max-height: 480px; overflow: auto; color: #d0e8ff; font-family: ui-monospace, monospace; }
+  </style>
 </head>
 <body>
-
-    <h1>Panique à Bord — Console de Supervision (Prototype Naïf)</h1>
-    <p>Système de gestion et télémétrie de crise. Version initiale 0.1.0.</p>
-
-    <div class="section">
-        <h2>État de la Flotte de Drones</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Identifiant</th>
-                    <th>Nom</th>
-                    <th>Coordonnée X</th>
-                    <th>Coordonnée Y</th>
-                    <th>Statut</th>
-                    <th>Batterie</th>
-                </tr>
-            </thead>
-            <tbody id="drones-table-body">
-                <tr><td colspan="6">Chargement des drones...</td></tr>
-            </tbody>
-        </table>
+  <header>
+    <h1>🚨 PANIQUE À BORD <span style="font-size:0.85rem; color:#88a;">— MISSION CONTROL</span></h1>
+    <div style="display:flex; gap:8px; align-items:center;">
+      <span class="badge badge-active" id="cnt-drones">🚁 Drones : 0</span>
+      <span class="badge badge-crit" id="cnt-incidents">🚨 Incidents : 0</span>
+      <button class="nav-btn active" id="tab-btn-cockpit" onclick="switchTab('cockpit')">🎯 COCKPIT</button>
+      <button class="nav-btn" id="tab-btn-docs" onclick="switchTab('docs')">📖 CENTRE DOCUMENTAIRE & QA</button>
     </div>
+  </header>
 
-    <div class="section">
-        <h2>Incidents Actifs Détectés</h2>
-        <table>
-            <thead>
-                <tr>
-                    <th>Identifiant</th>
-                    <th>Titre</th>
-                    <th>Coordonnée X</th>
-                    <th>Coordonnée Y</th>
-                    <th>Sévérité</th>
-                    <th>Statut</th>
-                </tr>
-            </thead>
-            <tbody id="incidents-table-body">
-                <tr><td colspan="6">Chargement des incidents...</td></tr>
-            </tbody>
-        </table>
+  <main id="tab-cockpit">
+    <div class="grid">
+      <div class="panel">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <strong style="color:var(--cyan)">CARTE TACTIQUE RADAR</strong>
+          <button class="btn btn-crit" onclick="simulateIncident()">⚡ Simuler Incident Critique</button>
+        </div>
+        <div class="radar-box" id="radar" onclick="onRadarClick(event)"></div>
+        <small style="color:#789; display:block; margin-top:6px;">Cliquez sur la carte ou utilisez le bouton pour injecter un incident critique (10-90%).</small>
+      </div>
+      <div style="display:flex; flex-direction:column; gap:12px;">
+        <div class="panel">
+          <strong style="color:var(--cyan)">FLOTTE DE DRONES</strong>
+          <table><thead><tr><th>ID</th><th>Nom</th><th>Pos</th><th>Statut</th><th>Batterie</th></tr></thead><tbody id="tbl-drones"></tbody></table>
+        </div>
+        <div class="panel">
+          <strong style="color:var(--cyan)">INCIDENTS DÉTECTÉS</strong>
+          <table><thead><tr><th>ID</th><th>Titre</th><th>Pos</th><th>Sévérité</th><th>Statut</th></tr></thead><tbody id="tbl-incidents"></tbody></table>
+        </div>
+      </div>
     </div>
+  </main>
 
-    <div class="section">
-        <h2>Déclarer un Nouvel Incident</h2>
-        <form id="incident-form">
-            <div class="form-group full">
-                <label for="titre">Titre / Nature de l'incident :</label>
-                <input type="text" id="titre" name="titre" placeholder="Ex: Feu de hangar zone sud" required>
-            </div>
-            <div class="form-group">
-                <label for="x">Coordonnée X :</label>
-                <input type="number" id="x" name="x" step="0.1" value="50.0" required>
-            </div>
-            <div class="form-group">
-                <label for="y">Coordonnée Y :</label>
-                <input type="number" id="y" name="y" step="0.1" value="50.0" required>
-            </div>
-            <div class="form-group full">
-                <label for="severite">Sévérité :</label>
-                <select id="severite" name="severite">
-                    <option value="BASSE">BASSE</option>
-                    <option value="MOYENNE" selected>MOYENNE</option>
-                    <option value="CRITIQUE">CRITIQUE</option>
-                </select>
-            </div>
-            <div class="form-group full">
-                <button type="submit">Transmettre l'alerte incident</button>
-            </div>
-        </form>
-        <div class="status-bar" id="status-bar">Dernière synchronisation : En attente...</div>
+  <main id="tab-docs" style="display:none;" class="panel">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <strong style="color:var(--cyan)">CENTRE DOCUMENTAIRE & QUALITÉ LOGICIELLE</strong>
+      <button class="btn" onclick="fetchDocs()">🔄 Rafraîchir Docs</button>
     </div>
+    <div id="docs-list" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px;"></div>
+    <pre id="doc-view" style="white-space:pre-wrap;">Sélectionnez un document ci-dessus pour consulter son contenu...</pre>
+  </main>
 
-    <script>
-        async function fetchState() {
-            try {
-                const response = await fetch('/api/state');
-                if (!response.ok) throw new Error('Erreur HTTP ' + response.status);
-                const data = await response.json();
-                renderDrones(data.drones || []);
-                renderIncidents(data.incidents || []);
-                document.getElementById('status-bar').textContent = 
-                    'Dernière synchronisation : ' + new Date().toLocaleTimeString();
-            } catch (err) {
-                console.error('Erreur chargement état:', err);
-                document.getElementById('status-bar').textContent = 
-                    'Erreur de synchronisation avec le serveur.';
-            }
+  <script>
+    let docsData = {};
+    function switchTab(t) {
+      document.getElementById('tab-cockpit').style.display = t === 'cockpit' ? 'block' : 'none';
+      document.getElementById('tab-docs').style.display = t === 'docs' ? 'block' : 'none';
+      document.getElementById('tab-btn-cockpit').classList.toggle('active', t === 'cockpit');
+      document.getElementById('tab-btn-docs').classList.toggle('active', t === 'docs');
+      if (t === 'docs') fetchDocs();
+    }
+
+    async function fetchState() {
+      try {
+        const res = await fetch('/api/state');
+        if (!res.ok) return;
+        const { drones = [], incidents = [] } = await res.json();
+        const activeInc = incidents.filter(i => (i.statut || i.status) !== 'RESOLVED');
+        document.getElementById('cnt-drones').textContent = `🚁 Drones : ${drones.length}`;
+        document.getElementById('cnt-incidents').textContent = `🚨 Incidents : ${activeInc.length}`;
+        
+        const radar = document.getElementById('radar');
+        radar.innerHTML = drones.map(d => `<div class="dot drone" style="left:${d.x}%;top:${d.y}%">🚁 ${d.id}</div>`).join('') +
+          activeInc.map(i => `<div class="dot inc" style="left:${i.x}%;top:${i.y}%">🚨 ${i.titre || i.title || i.id}</div>`).join('');
+          
+        document.getElementById('tbl-drones').innerHTML = drones.map(d => {
+          const b = d.batterie ?? d.battery ?? 0;
+          const bCol = b > 50 ? 'var(--emerald)' : (b > 20 ? 'var(--amber)' : 'var(--crimson)');
+          return `<tr><td><strong>${d.id}</strong></td><td>${d.nom || d.name || '-'}</td><td>(${d.x}, ${d.y})</td><td><span class="badge" style="background:rgba(0,240,255,0.1);color:var(--cyan);border:1px solid var(--border)">${d.statut || d.status}</span></td><td style="color:${bCol};font-weight:bold">${b}%</td></tr>`;
+        }).join('') || '<tr><td colspan="5">Aucun drone</td></tr>';
+        
+        document.getElementById('tbl-incidents').innerHTML = incidents.map(i => {
+          const isCrit = (i.severite || i.severity) === 'CRITICAL' || (i.severite || i.severity) === 'CRITIQUE';
+          const col = isCrit ? 'var(--crimson)' : 'var(--amber)';
+          return `<tr><td><strong>${i.id}</strong></td><td>${i.titre || i.title}</td><td>(${i.x}, ${i.y})</td><td style="color:${col};font-weight:bold">${i.severite || i.severity}</td><td>${i.statut || i.status}</td></tr>`;
+        }).join('') || '<tr><td colspan="5">Aucun incident</td></tr>';
+      } catch (e) { console.error('fetchState err', e); }
+    }
+
+    const TITLES = ["Alerte intrusion périmètre", "Départ de feu secteur Est", "Fuite de liquide toxique", "Panne électrique sous-station", "Surcharge thermique réacteur"];
+    async function postIncident(x, y, titre) {
+      await fetch('/api/incidents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          titre: titre || TITLES[Math.floor(Math.random() * TITLES.length)],
+          severite: 'CRITICAL',
+          severity: 'CRITICAL',
+          x: Math.round(x * 10) / 10,
+          y: Math.round(y * 10) / 10
+        })
+      });
+      fetchState();
+    }
+
+    function simulateIncident() {
+      postIncident(Math.floor(Math.random() * 80 + 10), Math.floor(Math.random() * 80 + 10));
+    }
+
+    function onRadarClick(e) {
+      const rect = e.currentTarget.getBoundingClientRect();
+      postIncident(Math.min(90, Math.max(10, ((e.clientX - rect.left) / rect.width) * 100)),
+                   Math.min(90, Math.max(10, ((e.clientY - rect.top) / rect.height) * 100)));
+    }
+
+    async function fetchDocs() {
+      try {
+        const res = await fetch('/api/docs');
+        const data = await res.json();
+        docsData = data.docs || {};
+        const keys = Object.keys(docsData);
+        const listEl = document.getElementById('docs-list');
+        if (!keys.length) {
+          listEl.innerHTML = '<span style="color:#889">Aucun document Markdown disponible pour le moment dans /docs.</span>';
+          return;
         }
+        listEl.innerHTML = keys.map(k => `<button class="btn" style="background:var(--panel);color:var(--cyan);border:1px solid var(--cyan)" onclick="showDoc('${k}')">📄 ${k}</button>`).join(' ');
+      } catch (e) { console.error('fetchDocs err', e); }
+    }
 
-        function renderDrones(drones) {
-            const tbody = document.getElementById('drones-table-body');
-            if (drones.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6">Aucun drone enregistré.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = drones.map(d => `
-                <tr>
-                    <td><strong>${d.id}</strong></td>
-                    <td>${d.nom || d.name || '-'}</td>
-                    <td>${d.x}</td>
-                    <td>${d.y}</td>
-                    <td>${d.statut || d.status || '-'}</td>
-                    <td>${d.batterie ?? d.battery ?? '-'} %</td>
-                </tr>
-            `).join('');
-        }
+    function showDoc(k) {
+      document.getElementById('doc-view').textContent = docsData[k] || 'Contenu introuvable';
+    }
 
-        function renderIncidents(incidents) {
-            const tbody = document.getElementById('incidents-table-body');
-            if (incidents.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6">Aucun incident actif.</td></tr>';
-                return;
-            }
-            tbody.innerHTML = incidents.map(i => `
-                <tr>
-                    <td><strong>${i.id}</strong></td>
-                    <td>${i.titre || i.title || '-'}</td>
-                    <td>${i.x}</td>
-                    <td>${i.y}</td>
-                    <td>${i.severite || i.severity || '-'}</td>
-                    <td>${i.statut || i.status || '-'}</td>
-                </tr>
-            `).join('');
-        }
-
-        document.getElementById('incident-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            const payload = {
-                titre: document.getElementById('titre').value,
-                x: parseFloat(document.getElementById('x').value),
-                y: parseFloat(document.getElementById('y').value),
-                severite: document.getElementById('severite').value
-            };
-            try {
-                const res = await fetch('/api/incidents', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                if (res.ok) {
-                    document.getElementById('titre').value = '';
-                    await fetchState();
-                } else {
-                    alert('Erreur lors de la création de l\'incident');
-                }
-            } catch (err) {
-                console.error('Erreur soumission incident:', err);
-                alert('Erreur réseau lors de la création de l\'incident');
-            }
-        });
-
-        // Chargement initial et rafraîchissement périodique
-        fetchState();
-        setInterval(fetchState, 3000);
-    </script>
+    fetchState();
+    setInterval(fetchState, 1000);
+  </script>
 </body>
 </html>
